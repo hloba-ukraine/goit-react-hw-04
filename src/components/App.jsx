@@ -1,51 +1,90 @@
+import SearchBar from "./SearchBar/SearchBar";
+import ImageGallery from "./ImageGallery/ImageGallery";
+import ErrorMessage from "../components/ErrorMessage/ErrorMessage";
 import { useEffect, useState } from "react";
-import ContactList from "./ContactList/ContactList";
-import SearchBox from "./SearchBox/SearchBox";
-import ContactForm from "./ContactForm/ContactForm";
-import { nanoid } from "nanoid";
-const initialContact = [
-  { id: "id-1", name: "Rosie Simpson", number: "459-12-56" },
-  { id: "id-2", name: "Hermione Kline", number: "443-89-12" },
-  { id: "id-3", name: "Eden Clements", number: "645-17-79" },
-  { id: "id-4", name: "Annie Copeland", number: "227-91-26" },
-];
+import axios from "axios";
+import LoadMoreBtn from "./LoadMoreBtn/LoadMoreBtn";
+import Loader from "./Loader/Loader";
 export default function App() {
-  const [contacts, setContacts] = useState(() => {
-    const stringifiedContacts = localStorage.getItem("contacts");
-    const parsedContacts = JSON.parse(stringifiedContacts) ?? initialContact;
-    return parsedContacts;
+  const [query, setQuery] = useState("");
+  const [images, setImages] = useState(null);
+  const [page, setPage] = useState(1);
+  const [errorMessage, setErrorMessage] = useState(false);
+  const [loader, setLoader] = useState(false);
+  const options = {
+    per_page: 12,
+    page: page,
+  };
+
+  const instance = axios.create({
+    baseURL: "https://api.unsplash.com/search",
   });
+  const API_KEY = "s87vf_i1heNu3dltJw-UXqI5GjUEBWPN_NCltfneOgc";
   useEffect(() => {
-    localStorage.setItem("contacts", JSON.stringify(contacts));
-  }, [contacts]);
-  const OnDeleteContact = (event) => {
-    setContacts((prevContacts) =>
-      prevContacts.filter((contact) => contact.id !== event)
-    );
-  };
-  const [filter, setFilter] = useState("");
-  const onChangeFilter = (event) => {
-    setFilter(event.target.value);
-  };
-  const filterContacts = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(filter.toLowerCase())
-  );
-  const onAddContact = (formData) => {
-    const finalContact = {
-      ...formData,
-      id: nanoid(),
+    const pagination = async () => {
+      try {
+        setLoader(true);
+        const { data } = await instance.get(
+          `/photos/?client_id=${API_KEY}&query=${query}`,
+          {
+            params: options,
+          }
+        );
+        const img = data.results;
+        setImages([...images, ...img]);
+
+        console.log(images);
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setLoader(false);
+      }
     };
-    setContacts((prevContacts) => [...prevContacts, finalContact]);
+    pagination();
+  }, [page]);
+  useEffect(() => {
+    if (query.length === 0) return;
+
+    const fetchPhotos = async () => {
+      try {
+        setLoader(true);
+        const { data } = await instance.get(
+          `/photos/?client_id=${API_KEY}&query=${query}`,
+          {
+            params: {
+              per_page: 12,
+            },
+          }
+        );
+
+        const img = data.results;
+        setImages(img);
+
+        console.log(images);
+      } catch (error) {
+        setErrorMessage(true);
+        console.log(error);
+      } finally {
+        setLoader(false);
+      }
+    };
+    fetchPhotos();
+  }, [query]);
+  const handleSearch = (q) => {
+    setQuery(q);
+  };
+  const handleLoadMore = () => {
+    setPage(page + 1);
   };
   return (
-    <div>
-      <h1>Phonebook</h1>
-      <ContactForm onAddContact={onAddContact} />
-      <SearchBox value={filter} onChangeFilter={onChangeFilter} />
-      <ContactList
-        contacts={filterContacts}
-        OnDeleteContact={OnDeleteContact}
-      />
-    </div>
+    <>
+      <SearchBar handleSearch={handleSearch} />
+      {loader === true && <Loader />}
+      {errorMessage === true && <ErrorMessage />}
+      {Array.isArray(images) && <ImageGallery dataCard={images} />}
+      {Array.isArray(images) && images.length > 0 && (
+        <LoadMoreBtn handleLoadMore={handleLoadMore} />
+      )}
+    </>
   );
 }

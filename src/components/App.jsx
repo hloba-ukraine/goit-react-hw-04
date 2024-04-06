@@ -39,7 +39,7 @@ export default function App() {
         );
 
         const img = data.results;
-        setImages([...images, ...img]);
+        setImages((prevImages) => [...prevImages, ...img]);
 
         console.log(images);
       } catch (error) {
